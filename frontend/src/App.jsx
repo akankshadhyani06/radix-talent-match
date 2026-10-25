@@ -1,54 +1,82 @@
-import { useState } from "react";
-import Dashboard from "./pages/Dashboard.jsx";
-import JDAnalytics from "./pages/JDAnalytics.jsx";
-import ResumeParsing from "./pages/ResumeParsing.jsx";
-import ProfileBuilder from "./pages/ProfileBuilder.jsx";
-import TalentCheck from "./pages/TalentCheck.jsx";
-import SkillMatching from "./pages/SkillMatching.jsx";
+import React from "react";
+import { WorkflowProvider, useWorkflow } from "./state/WorkflowContext";
+import FlowStepper from "./components/FlowStepper";
+import Dashboard from "./pages/Dashboard";
+import JDAnalytics from "./pages/JDAnalytics";
+import ResumeParsing from "./pages/ResumeParsing";
+import ProfileBuilder from "./pages/ProfileBuilder";
+import TalentCheck from "./pages/TalentCheck";
+import SkillMatching from "./pages/SkillMatching";
 
-const modules = [
-  { id: "jd-analytics", name: "JD Analytics", Page: JDAnalytics },
-  { id: "resume-parsing", name: "Resume Parsing", Page: ResumeParsing },
-  { id: "profile-builder", name: "Profile Builder", Page: ProfileBuilder },
-  { id: "talent-check", name: "Talent Check", Page: TalentCheck },
-  { id: "skill-matching", name: "Skill Matching", Page: SkillMatching },
-];
+const MODULE_PAGES = {
+  "jd-analytics": JDAnalytics,
+  "resume-parsing": ResumeParsing,
+  "profile-builder": ProfileBuilder,
+  "talent-check": TalentCheck,
+  "skill-matching": SkillMatching,
+};
 
-export default function App() {
-  const [activeModule, setActiveModule] = useState(null);
-  const ActivePage = modules.find((module) => module.id === activeModule)?.Page;
+function AppShell() {
+  const { state, setActiveModule } = useWorkflow();
+  const { activeModule } = state;
+  const ActivePage = activeModule ? MODULE_PAGES[activeModule] : null;
 
   return (
     <div className="app-shell">
+      {/* Top Site Header */}
       <header className="site-header">
         <a
           className="brand"
           href="#dashboard"
-          onClick={() => setActiveModule(null)}
-          aria-label="RADIX Talent Match dashboard"
+          onClick={(e) => {
+            e.preventDefault();
+            setActiveModule(null);
+          }}
+          aria-label="RADIX Talent Match Home"
         >
           <span className="brand-mark" aria-hidden="true">R</span>
-          <span>RADIX <strong>Talent Match</strong></span>
+          <div className="brand-text">
+            RADIX <span>Talent Match</span>
+          </div>
         </a>
-        <span className="header-note">Candidate readiness workspace</span>
+
+        <div className="header-right">
+          <div className="header-badge">
+            <span className="header-badge-dot" />
+            <span>12-Skillset Framework v1</span>
+          </div>
+        </div>
       </header>
 
+      {/* 5-Step Flow Stepper */}
+      <FlowStepper />
+
+      {/* Main Content Area */}
       <main className="main-content">
         {ActivePage ? (
-          <>
-            <button className="back-link" onClick={() => setActiveModule(null)}>
-              ← Back to dashboard
-            </button>
-            <ActivePage />
-          </>
+          <ActivePage />
         ) : (
-          <Dashboard modules={modules} onSelectModule={setActiveModule} />
+          <Dashboard onSelectModule={setActiveModule} />
         )}
       </main>
 
+      {/* Clean Footer */}
       <footer className="site-footer">
-        Initial scaffold · Module functionality is planned, not implemented
+        <div>
+          RADIX Talent Match · Hackathon Engineering Platform · Powered by FastAPI & Google Gemini LLM
+        </div>
+        <div style={{ marginTop: "4px", fontSize: "12px", color: "var(--text-light)" }}>
+          Role 1 (JD Analytics) Fully Implemented · Shared State & Contracts Active for Roles 2–5
+        </div>
       </footer>
     </div>
+  );
+}
+
+export default function App() {
+  return (
+    <WorkflowProvider>
+      <AppShell />
+    </WorkflowProvider>
   );
 }
