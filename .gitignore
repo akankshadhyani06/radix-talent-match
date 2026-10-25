@@ -33,3 +33,9 @@ pnpm-debug.log*
 .DS_Store
 Thumbs.db
 Desktop.ini
+
+# Local data persistence
+backend/data/**
+!backend/data/jd_results/
+backend/data/jd_results/*.json
+!backend/data/jd_results/.gitkeep
