@@ -45,3 +45,9 @@ backend/data/jd_results/*.json
 node_modules/
 __pycache__/
 backend/data/cvs/
+
+.env
+.venv/
+node_modules/
+__pycache__/
+backend/data/cvs/
