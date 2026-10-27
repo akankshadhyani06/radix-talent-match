@@ -63,4 +63,15 @@ Vite prints the local development URL when the server starts. The frontend API h
 
 ## Current status
 
-This repository currently contains **only the initial project scaffold**. Business analysis, resume extraction, profile persistence, readiness assessment, matching/scoring, real LLM workflows, and database schema/connection setup are not implemented.
+All five modules are implemented:
+
+| Role | Module | Approach |
+| --- | --- | --- |
+| 1 | JD Analytics | LangChain + Gemini extraction (needs `LLM_API_KEY`) |
+| 2 | Resume Parsing | Offline keyword/lexicon extraction for PDF/DOCX/TXT, section detection |
+| 3 | Profile Builder | Form + validation + JSON save/load (`backend/data/profiles`) |
+| 4 | Talent Check | Local CSV snapshot; level = f(skills per category); readiness = required-weighted coverage |
+| 5 | Skill Matching | exact -> alias -> fuzzy -> optional LLM; weighted score + gap list |
+
+Flow: JD -> Resume -> Profile -> Talent Check -> Skill Matching. Run backend tests with `python -m pytest backend/tests`.
+Known limits: Resume Parsing is keyword-based (no LLM); the frontend build was not run in the packaging environment, so run `npm install && npm run dev` once before demo day.

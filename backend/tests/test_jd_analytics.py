@@ -357,4 +357,3 @@ def test_other_roles_stubs_return_501(client):
     assert client.post("/api/profiles").status_code == 501
     assert client.get("/api/profiles/candidate-1").status_code == 501
     assert client.post("/api/talent-checks").status_code == 501
-    assert client.post("/api/skill-matches").status_code == 501

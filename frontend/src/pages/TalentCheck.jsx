@@ -1,75 +1,50 @@
-import React from "react";
+import React, { useEffect, useState } from "react";
 import PageHeader from "../components/PageHeader";
-import { Card, StatusBadge } from "../components/UIComponents";
+import { Button, Card, ErrorBanner } from "../components/UIComponents";
 import { useWorkflow } from "../state/WorkflowContext";
+import { assessTalentCheck, listCompanies } from "../services/api";
 
 export default function TalentCheck() {
-  const { state, setActiveModule } = useWorkflow();
-  const { profile, selectedCompany, jdResult } = state;
+  const { state, setActiveModule, setTalentCheckResult, setCompany } = useWorkflow();
+  const { profile, talentCheckResult: res } = state;
+  const [companies, setCompanies] = useState([]);
+  const [company, setCo] = useState(state.selectedCompany || "");
+  const [error, setError] = useState(null);
+  useEffect(() => { listCompanies().then(setCompanies).catch((e) => setError(e.message)); }, []);
 
+  async function run() {
+    setError(null);
+    try { setCompany(company); setTalentCheckResult(await assessTalentCheck(profile, company)); }
+    catch (e) { setError(e.message); }
+  }
   return (
     <div>
-      <PageHeader
-        eyebrow="STEP 4 OF 5 · ROLE 4"
-        title="Talent Check"
-        subtitle="Benchmark candidate readiness against target company expectations across the 12 competency categories."
-        backAction={() => setActiveModule(null)}
-      />
-
-      <Card style={{ maxWidth: "800px", margin: "0 auto 24px", borderTop: "4px solid var(--accent-mod-4)" }}>
-        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "16px" }}>
-          <div>
-            <span style={{ fontSize: "12px", fontWeight: 700, color: "var(--accent-mod-4)", textTransform: "uppercase" }}>
-              MODULE PLACEHOLDER · TEAM MEMBER #4
-            </span>
-            <h2 style={{ margin: "4px 0 0", fontSize: "20px", fontWeight: 700 }}>
-              Under Construction by Teammate #4
-            </h2>
-          </div>
-          <StatusBadge status="under_construction" />
-        </div>
-
-        <p style={{ color: "var(--text-secondary)", fontSize: "14px", lineHeight: 1.6, marginBottom: "20px" }}>
-          This page is owned by <strong>Team Member #4</strong>. It assesses the candidate against company-level
-          benchmarks across the 12 competency dimensions (COD, DSA, OOD, APTI, COMM, AI, CLOUD, SQL, SWE, SYSD, NETW, OS).
-        </p>
-
-        <div style={{ background: "var(--bg-subtle)", padding: "16px", borderRadius: "var(--radius-md)", marginBottom: "16px" }}>
-          <h4 style={{ margin: "0 0 8px", fontSize: "14px", fontWeight: 700 }}>
-            📥 Input from Pipeline:
-          </h4>
-          <div style={{ fontSize: "13px", color: "var(--text-primary)" }}>
-            <div>🏢 <strong>Target Company:</strong> {selectedCompany || jdResult?.company || "Not selected yet"}</div>
-            <div>👤 <strong>Candidate Profile:</strong> {profile ? profile.name : "Awaiting Step 3 output"}</div>
-          </div>
-        </div>
-
-        <div style={{ background: "#f8fafc", padding: "16px", borderRadius: "var(--radius-md)", border: "1px dashed var(--border-light)" }}>
-          <h4 style={{ margin: "0 0 8px", fontSize: "14px", fontWeight: 700 }}>
-            📤 Expected Output:
-          </h4>
-          <pre style={{ margin: 0, fontSize: "12px", background: "#ffffff", padding: "12px", borderRadius: "6px", overflowX: "auto" }}>
-{`{
-  "company": "${selectedCompany || "Google"}",
-  "readiness_score": 85,
-  "skillset_gap": [
-    {
-      "category_code": "COD",
-      "required_level": 8,
-      "candidate_level": 9,
-      "gap": false
-    },
-    {
-      "category_code": "SYSD",
-      "required_level": 8,
-      "candidate_level": 6,
-      "gap": true
-    }
-  ]
-}`}
-          </pre>
-        </div>
+      <PageHeader eyebrow="STEP 4 OF 5 · ROLE 4" title="Talent Check"
+        subtitle="Readiness vs a company's bar across the 12 skillsets."
+        backAction={() => setActiveModule(null)} />
+      <Card style={{ maxWidth: 800, margin: "0 auto 24px" }}>
+        {!profile?.skills?.length && <ErrorBanner message="Save a profile first (Profile Builder)." />}
+        <select value={company} onChange={(e) => setCo(e.target.value)}>
+          <option value="">Select company…</option>
+          {companies.map((c) => <option key={c}>{c}</option>)}
+        </select>{" "}
+        <Button onClick={run} disabled={!company || !profile?.skills?.length}>Check readiness</Button>
+        {error && <ErrorBanner message={error} />}
       </Card>
+      {res && (
+        <Card style={{ maxWidth: 800, margin: "0 auto" }}>
+          <h2>{res.readiness_score}/100 ready for {res.company}</h2>
+          {res.skillset_gap.map((g) => (
+            <div key={g.category_code} style={{ margin: "6px 0" }}>
+              <b>{g.category_code}</b> — you {g.candidate_level} / needed {g.required_level} {g.gap ? "⚠ gap" : "✓"}
+              <div style={{ height: 8, background: "#e2e8f0", borderRadius: 4 }}>
+                <div style={{ height: 8, borderRadius: 4, width: `${Math.min(100, (g.candidate_level / Math.max(g.required_level, 1)) * 100)}%`, background: g.gap ? "#b45309" : "#047857" }} />
+              </div>
+            </div>
+          ))}
+          <p style={{ marginTop: 16 }}><Button onClick={() => setActiveModule("skill-matching")}>Continue to Skill Matching →</Button></p>
+        </Card>
+      )}
     </div>
   );
 }

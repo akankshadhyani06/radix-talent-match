@@ -39,3 +39,9 @@ backend/data/**
 !backend/data/jd_results/
 backend/data/jd_results/*.json
 !backend/data/jd_results/.gitkeep
+
+.env
+.venv/
+node_modules/
+__pycache__/
+backend/data/cvs/

@@ -26,7 +26,9 @@ from app.services.jd_analytics import (
     list_jd_results,
     save_jd_result,
 )
+from app.schemas.matching_schema import SkillMatchRequest, SkillMatchResult
 from app.services.jd_file_reader import MAX_FILE_SIZE_BYTES
+from app.services.skill_matching import match_skills
 
 logger = logging.getLogger(__name__)
 
@@ -245,48 +247,114 @@ def get_single_jd_analysis(jd_id: str) -> SavedJDSkillRecord:
     return record
 
 
-# --- Stubs for Roles 2-5 (preserves docs/api-contracts.md) ---
+# --- Roles 2-4 ---
+from fastapi import File, UploadFile
+from app.services import resume_parser, profile_builder, talent_check
+
 
 @router.post("/api/resume-parsing", tags=["resume-parsing"])
-def parse_resume_stub() -> dict[str, Any]:
-    """Stub endpoint for Role 2 (Resume Parsing). Owned by teammate #2."""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Resume Parsing endpoint is under construction by Role 2 teammate.",
-    )
+async def parse_resume_endpoint(file: UploadFile = File(...)) -> dict[str, Any]:
+    try:
+        return resume_parser.parse_resume(await file.read(), file.filename or "resume.txt")
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
 
 
 @router.post("/api/profiles", tags=["profile-builder"])
-def create_profile_stub() -> dict[str, Any]:
-    """Stub endpoint for Role 3 (Profile Builder). Owned by teammate #3."""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Profile Builder endpoint is under construction by Role 3 teammate.",
-    )
+def create_profile(payload: dict[str, Any]) -> dict[str, Any]:
+    try:
+        return profile_builder.build_candidate_profile(payload)
+    except ValueError as exc:
+        raise HTTPException(status_code=422, detail=str(exc))
+
+
+@router.post("/api/profiles/cv", tags=["profile-builder"])
+async def upload_cv(file: UploadFile = File(...)) -> dict[str, Any]:
+    return {"cv_file": profile_builder.save_cv(await file.read(), file.filename or "cv.pdf")}
+
+
+@router.get("/api/samples/candidates", tags=["samples"])
+def sample_candidates() -> list[dict[str, Any]]:
+    return [p for p in (profile_builder.load_profile(x["candidate_id"]) for x in profile_builder.list_profiles())
+            if p and p["candidate_id"].startswith("sample-")]
+
+
+@router.get("/api/profiles", tags=["profile-builder"])
+def list_profiles() -> list[dict[str, Any]]:
+    return profile_builder.list_profiles()
 
 
 @router.get("/api/profiles/{candidate_id}", tags=["profile-builder"])
-def get_profile_stub(candidate_id: str) -> dict[str, Any]:
-    """Stub endpoint for Role 3 (Profile Builder). Owned by teammate #3."""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Profile retrieval endpoint is under construction by Role 3 teammate.",
-    )
+def get_profile(candidate_id: str) -> dict[str, Any]:
+    prof = profile_builder.load_profile(candidate_id)
+    if not prof:
+        raise HTTPException(status_code=404, detail="Profile not found.")
+    return prof
+
+
+@router.get("/api/talent-check/companies", tags=["talent-check"])
+def talent_companies() -> list[str]:
+    return sorted(talent_check.load_companies())
 
 
 @router.post("/api/talent-checks", tags=["talent-check"])
-def assess_talent_check_stub() -> dict[str, Any]:
-    """Stub endpoint for Role 4 (Talent Check). Owned by teammate #4."""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Talent Check endpoint is under construction by Role 4 teammate.",
+def assess_talent_check(payload: dict[str, Any]) -> dict[str, Any]:
+    prof = payload.get("profile") or profile_builder.load_profile(payload.get("candidate_id", "")) or {}
+    try:
+        return talent_check.assess(prof.get("skills", []), payload.get("company", ""))
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc.args[0]))
+
+
+@router.post(
+    "/api/skill-matches",
+    response_model=SkillMatchResult,
+    tags=["skill-matching"],
+    summary="Match a candidate profile/resume against one extracted JD",
+)
+def match_skills_endpoint(payload: SkillMatchRequest) -> SkillMatchResult:
+    """Role 5: score a candidate against ONE JD and list matched / missing skills."""
+    jd: dict[str, Any] | None = payload.jd
+    jd_id = payload.jd_id
+    if jd is None and jd_id:
+        record = get_jd_result(jd_id)
+        if not record:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail=f"JD analysis '{jd_id}' not found.",
+            )
+        jd = record.model_dump()
+    if not jd or not jd.get("skills"):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Provide a JD with extracted skills (jd_id or jd). Run JD Analytics first.",
+        )
+
+    source = payload.profile or payload.resume
+    cand_skills = payload.candidate_skills
+    candidate_source = (
+        "profile" if payload.profile else "resume" if payload.resume else "manual"
     )
+    if cand_skills is None and source:
+        cand_skills = source.get("skills") or []
+    if not cand_skills:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Candidate has no skills. Parse a resume or build a profile first.",
+        )
 
-
-@router.post("/api/skill-matches", tags=["skill-matching"])
-def match_skills_stub() -> dict[str, Any]:
-    """Stub endpoint for Role 5 (Skill Matching). Owned by teammate #5."""
-    raise HTTPException(
-        status_code=status.HTTP_501_NOT_IMPLEMENTED,
-        detail="Skill Matching endpoint is under construction by Role 5 teammate.",
+    return match_skills(
+        jd["skills"],
+        cand_skills,
+        jd_source_file=jd.get("source_file", ""),
+        jd_id=jd_id or jd.get("id"),
+        company=jd.get("company"),
+        role=jd.get("role"),
+        candidate_name=(
+            (source or {}).get("name")
+            or (source or {}).get("candidate_name")
+            or payload.candidate_name
+        ),
+        candidate_source=candidate_source,
+        use_llm=payload.use_llm,
     )

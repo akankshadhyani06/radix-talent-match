@@ -211,7 +211,7 @@ export default function Dashboard({ onSelectModule }) {
                     {m.name.split(": ")[1] || m.name}
                   </h3>
                 </div>
-                <StatusBadge status={m.isCompleted ? "Completed" : m.isOwner ? "In progress" : "under_construction"} />
+                <StatusBadge status={m.isCompleted ? "Completed" : m.isOwner ? "In progress" : "ready"} />
               </div>
 
               <p style={{ fontSize: "14px", color: "var(--text-secondary)", lineHeight: 1.5, marginBottom: "16px" }}>

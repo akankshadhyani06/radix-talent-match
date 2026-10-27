@@ -138,24 +138,40 @@ export function getCandidateProfile(candidateId) {
   return apiRequest(`/api/profiles/${candidateId}`);
 }
 
-/**
- * [STUB] Role 4: Talent Check
- * Handled by Teammate #4.
- */
-export function assessTalentCheck(candidateId, targetCompany) {
-  return apiRequest("/api/talent-checks", {
-    method: "POST",
-    body: JSON.stringify({ candidate_id: candidateId, company: targetCompany }),
-  });
+export function listCompanies() {
+  return apiRequest("/api/talent-check/companies");
+}
+
+export function assessTalentCheck(profile, company) {
+  return apiRequest("/api/talent-checks", { method: "POST", body: JSON.stringify({ profile, company }) });
 }
 
 /**
- * [STUB] Role 5: Skill Matching
- * Handled by Teammate #5.
+ * Role 5: Skill Matching.
+ * Pass the saved JD analysis id (or inline jd) plus the candidate profile or
+ * parsed resume object. Returns match_score, matched_skills, missing_skills.
  */
-export function matchSkills(candidateId, jdId) {
+export function matchSkills({ jdId, jd, profile, resume, candidateSkills, candidateName, useLlm = true }) {
   return apiRequest("/api/skill-matches", {
     method: "POST",
-    body: JSON.stringify({ candidate_id: candidateId, jd_id: jdId }),
+    body: JSON.stringify({
+      jd_id: jdId || undefined,
+      jd: jdId ? undefined : jd,
+      profile: profile || undefined,
+      resume: profile ? undefined : resume || undefined,
+      candidate_skills: candidateSkills?.length ? candidateSkills : undefined,
+      candidate_name: candidateName || undefined,
+      use_llm: useLlm,
+    }),
   });
+}
+
+export function uploadCv(file) {
+  const fd = new FormData();
+  fd.append("file", file);
+  return apiRequest("/api/profiles/cv", { method: "POST", body: fd });
+}
+
+export function listSampleCandidates() {
+  return apiRequest("/api/samples/candidates");
 }
